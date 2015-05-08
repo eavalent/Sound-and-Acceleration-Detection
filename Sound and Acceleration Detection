@@ -1,0 +1,250 @@
+/*State University of New York at Buffalo
+* EE494 Senior Capstone Design
+* May 8 2015
+* Sound and Acceleration Detection 
+* Emily Valentine 315-412-2435
+*                 eavalent@buffalo.edu
+* Brian Lada      914-860-5854
+*                 brianlad@buffalo.edu
+* GNU General Public License v2.0
+*/ 
+
+
+int soundBuffer [12] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; //initiate soundBuffer array to contain all 1's
+int vibrationBuffer [12] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; //initiate vibrationBuffer array to contain all 1's
+int soundSensorPin = A0; //initiate the variable soundSensorPin to analog pin 0
+const int zPin = 3; //initialize the variable zPin to analog pin 3
+
+
+
+void setup() { //this begins the setup function
+  Serial.begin (1200); //we want the serial feed to run at 1200 BAUD
+  noInterrupts();           // disable all interrupts
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A = 15625;            // compare match register 16MHz/256/2Hz
+  TCCR1B |= (1 << WGM12);   // CTC mode
+  TCCR1B |= (1 << CS12);    // 256 prescaler
+  TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
+  interrupts();             // enable all interrupts
+}
+
+void loop() { //start of main loop function
+  //testing ();
+  delay(1000);
+}
+
+ISR(TIMER1_COMPA_vect) { //every time the interrupts are called this loop will perfom whatever is inside of it
+  int sound = soundSensor(); //whatever comes out of the soundSensor function will be the variable sound
+  int vibration = vibrationSensor (); //whatever comes out of the vibrationSensor function will be the variable vibration
+  updateSoundBuffer(sound); // pass sound into the updateSoundBuffer function
+  updateVibrationBuffer(vibration); // pass vibration into the updateVibrationBuffer function
+  int sP = soundPattern (); //whatever comes out of the function soundPattern will be the variable sP
+  int vP = vibrationPattern (); //whatever comes out of the function vibrationPattern will be the variable vP
+  if (vP == 1 && sP == 1) { //if vP and sP are both valid then do:
+    warning();  // jump to the warning function
+    clearBuffers(); //jump to the function clearBuffers
+  }
+  // timer compare interrupt service routine
+  // this happens 4 times per second (earth time)
+}
+
+int soundSensor () { //start of soundSensor function
+  int soundSensorValue = analogRead (soundSensorPin); //the variable soundSensorValue comes from the soundSensorPin variable
+  if ( soundSensorValue >= 85) { //if the microphone reaches 85 dB threshold then return a 1
+    return 1; 
+  }
+  return 0;  //if the microphone does NOT reach the threshold return a 0
+}
+
+int vibrationSensor () { // start of vibrationSensor function
+  int zSensorValue = analogRead (zPin); //the zSensorValue will get the zPin value
+  if (zSensorValue >= 350 || zSensorValue <320 ) { //if the vibration threshold upper limit or lower limit are passed then return a 1
+    return 1;
+  }
+  return 0; //if the upper or lower limits are not passed return a 0
+}
+void updateSoundBuffer(int newelement) //start of updateSoundBuffer program
+{
+  soundBuffer [0] = soundBuffer [1]; //these instructions just move every element to one element back in the array and throw out the oldest element
+  soundBuffer [1] = soundBuffer [2];
+  soundBuffer [2] = soundBuffer [3];
+  soundBuffer [3] = soundBuffer [4];
+  soundBuffer [4] = soundBuffer [5];
+  soundBuffer [5] = soundBuffer [6];
+  soundBuffer [6] = soundBuffer [7];
+  soundBuffer [7] = soundBuffer [8];
+  soundBuffer [8] = soundBuffer [9];
+  soundBuffer [9] = soundBuffer [10];
+  soundBuffer [10] = soundBuffer [11];
+  soundBuffer [11] = newelement ; //the new element that gets passed in (sound from the soundSensor function) will be placed in the newest array element
+}
+
+void updateVibrationBuffer(int newelement) // start of updateVibrationBuffer function 
+{
+  vibrationBuffer [0] = vibrationBuffer [1]; //these instructions just move every element to one element back in the array and throw out the oldest element
+  vibrationBuffer [1] = vibrationBuffer [2];
+  vibrationBuffer [2] = vibrationBuffer [3];
+  vibrationBuffer [3] = vibrationBuffer [4];
+  vibrationBuffer [4] = vibrationBuffer [5];
+  vibrationBuffer [5] = vibrationBuffer [6];
+  vibrationBuffer [6] = vibrationBuffer [7];
+  vibrationBuffer [7] = vibrationBuffer [8];
+  vibrationBuffer [8] = vibrationBuffer [9];
+  vibrationBuffer [9] = vibrationBuffer [10];
+  vibrationBuffer [10] = vibrationBuffer [11];
+  vibrationBuffer [11] = newelement ; //the new element that gets passed in (vibration from the vibrationSensor function) will be placed in the newest array element
+}
+
+int soundPattern () { //start of the soundPattern function
+  int i = 0; //start the i value at 0
+  int flag0 = 1; //flag 0 needs to start at 1 so that it triggeres the if flag0=1 function where it will check the oldest value in the array to see if its high or low
+  int flag1 = 0; //the rest of these flags need to start at 0 because if they were 1 then all of the if/else statements would be met on the first run through the for loop, so then none of the flags would be able to be valid
+  int flag2 = 0;
+  int flag3 = 0;
+  int flag4 = 0;
+  int flag5 = 0;
+
+  //checks low then high
+
+
+  for (i; i < 12; i++) {  //start of for loop where the loop will run 12 times becasue there are 12 elements in the array and they all need to be checked
+    if (flag4 == 1)  //this else statement is selected if flag 4 has already been set
+    {
+      if (soundBuffer[i] == 0)	    //low
+      {
+        flag5 = 1; //if array element i is LOW then set the fifth flag high
+      }
+    }
+    else if (flag3 == 1) //this else statement is selected if flag 3 has already been set
+    {
+      if (soundBuffer[i] == 1)	  //high
+      {
+        flag4 = 1; //if array element i is HIGH then set the fourth flag
+      }
+    }
+    else if (flag2 == 1) //this else statement is selected if flag 2 has already been set
+    {
+      if (soundBuffer[i] == 0) //low
+      {
+        flag3 = 1; //if array element i is LOW then set the third flag
+      }
+
+    }
+    else if (flag1 == 1) //this else statement is selected if flag 1 has already been set
+    {
+      if (soundBuffer[i] == 1) //if array element i is HIGH then set the second flag high
+      {
+        flag2 = 1; //flag 2 is set
+      }
+      //check if the first element of the pattern can be matched
+    }
+    else if ( flag0 == 1) //Since flag 0 is set to 1 initially, the first time the loop runs, this else statement will be the only one that is true
+    {
+      if (soundBuffer[i] == 0) //if the element is a low value (not surpassing the sound threshold) then flag 1 will be set!
+      {
+        flag1 = 1; //flag 1 is set to 1
+      }
+    }
+    else {
+
+    }
+    //check if the the whole pattern is met
+    if (flag3 == 1) //if the first three flags are met, the vibration has met the designated LOW HIGH LOW compression so we return a 1 value for the sound pattern being met
+    {
+      return 1;
+    }
+    //if none of the condtions are met, send back a zero for that particular array element and then increase the i value and try again
+  }
+ 
+  return 0; //we got to the end of the array without matching the whole pattern so a 0 for the array pattern will be sent back.
+}
+
+int vibrationPattern () { //start of the vibrationPattern function
+  int i = 0; //start the i value at 0
+  int flag0 = 1;  //flag 0 needs to start at 1 so that it triggeres the if flag0=1 function where it will check the oldest value in the array to see if its high or low
+  int flag1 = 0; //the rest of these flags need to start at 0 because if they were 1 then all of the if/else statements would be met on the first run through the for loop, so then none of the flags would be able to be valid
+  int flag2 = 0;
+  int flag3 = 0;
+  int flag4 = 0;
+  int flag5 = 0;
+
+
+  for (i; i < 12; i++) { //start of for loop where the loop will run 12 times becasue there are 12 elements in the array and they all need to be checked
+    if (flag4 == 1) //this else statement is selected if flag 4 has already been set
+    {
+      if (vibrationBuffer[i] == 0)	    //low
+      {
+        flag5 = 1;  //if array element i is LOW then set the fifth flag high
+      }
+    }
+    else if (flag3 == 1)  //this else statement is selected if flag 3 has already been set
+    {
+      if (vibrationBuffer[i] == 1)	  //high
+      {
+        flag4 = 1;  //if array element i is HIGH then set the fourth flag high
+      }
+    }
+    else if (flag2 == 1)  //this else statement is selected if flag 2 has already been set
+    {
+      if (vibrationBuffer[i] == 0) //low
+      {
+        flag3 = 1;  //if array element i is LOW then set the third flag high
+      }
+
+    }
+    else if (flag1 == 1)  //this else statement is selected if flag 1 has already been set
+    {
+      if (vibrationBuffer[i] == 1) //high
+      {
+        flag2 = 1;  //if array element i is HIGH then set the second flag high
+      }
+      //check if the first element of the pattern can be matched
+    }
+    else if ( flag0 == 1)  //Since flag 0 is set to 1 initially, the first time the loop runs, this else statement will be the only one that is true
+    {
+      if (vibrationBuffer[i] == 0) //low
+      {
+        flag1 = 1; //if array element i is LOW then the set the first flag high
+      }
+    }
+    else {
+
+    }
+    //check if the the whole pattern is met
+    if (flag3 == 1) //if flags 0 through 3 are set then we have the LOW HIGH LOW compression, which signifies a cough so we want to return a 1
+    {
+      return 1; 
+    }
+  }
+    return 0; //if all of the flags are not set then we return a 0.  If all of the flags are set then we have the LOW HIGH LOW..... sequence which means a cough.  if we return a 0 there is NO cough
+
+  }
+
+  void warning () { //start of warning function
+    Serial.println ("Asthma Warning"); //print the asthma warning to the serial display
+  }
+
+  void testing () { //start of testing function
+    Serial.println ("Outputting Sound Buffer Values:"); 
+    int i = 0;
+    for (i; i < 12 ; i++) { //for all 12 sound array elements, print their values
+      Serial.println (soundBuffer [i]);
+    }
+    Serial.println ("Outputting Vibration Buffer Values:");
+    i = 0;
+    for (i; i < 12 ; i++) {  //for all 12 sound array elements, print their values
+      Serial.println (vibrationBuffer [i]);
+    }
+  }
+
+void clearBuffers(){  //start of clear buffers function
+  int i=0;
+  for (i; i<12; i++) //for all 12 array elements, set their values to 0 so the sound and vibration buffers are cleared
+  {
+    soundBuffer [i] =0;
+    vibrationBuffer [i]=0;
+  }
+  
+}
